@@ -42,17 +42,18 @@ func _values(values ...interface{}) (string, []interface{}) {
 	var sql strings.Builder
 	var vars []interface{}
 	sql.WriteString("VALUES ")
-	for i, value := range values {
+	for i, value := range values[1:] {
 		v := value.([]interface{})
 		if bindStr == "" {
 			bindStr = genBindVars(len(v))
 		}
 		sql.WriteString(fmt.Sprintf("(%v)", bindStr))
-		if i+1 != len(values) {
+		if i+2 != len(values) {
 			sql.WriteString(",")
 		}
 		vars = append(vars, v...)
 	}
+	sql.WriteString(fmt.Sprintf(" RETURNING %v", strings.Join(values[0].([]string), ",")))
 	return sql.String(), vars
 }
 

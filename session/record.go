@@ -6,23 +6,46 @@ import (
 	"reflect"
 )
 
-func (s *Session) Insert(values ...interface{}) (int64, error) {
+func (s *Session) Insert(values interface{}) error {
+	if reflect.ValueOf(values).Kind() != reflect.Ptr {
+		return errors.New("values not pointer")
+	}
 	recordValues := make([]interface{}, 0)
-	for _, value := range values {
+	for _, value := range insertInBatches(values) {
 		s.CallMethod(BeforeInsert, value)
 		table := s.Model(value).RefTable()
-		s.clause.Set(clause.INSERT, table.Name, table.FieldNames)
-		recordValues = append(recordValues, table.RecordValues(value))
+		if len(recordValues) == 0 { // 添加返回数据
+			recordValues = append(recordValues, table.FieldNames)
+		}
+		fieldSqlNames, fieldValues := table.RecordValues(value)
+		s.clause.Set(clause.INSERT, table.Name, fieldSqlNames)
+		recordValues = append(recordValues, fieldValues)
 	}
-
 	s.clause.Set(clause.VALUES, recordValues...)
 	sql, vars := s.clause.Build(clause.INSERT, clause.VALUES)
-	result, err := s.Raw(sql, vars...).Exec()
+	rows, err := s.Raw(sql, vars...).QueryRows()
 	if err != nil {
-		return 0, err
+		return err
 	}
-	s.CallMethod(AfterInsert, nil)
-	return result.RowsAffected()
+
+	// binding returning
+	destSlice := reflect.Indirect(reflect.ValueOf(values))
+	destType := destSlice.Type().Elem()
+	var index int
+	for rows.Next() {
+		dest := reflect.New(destType).Elem()
+		var result []interface{}
+		for _, field := range s.RefTable().Fields {
+			result = append(result, dest.FieldByName(field.Name).Addr().Interface())
+		}
+		if err = rows.Scan(result...); err != nil {
+			return err
+		}
+		s.CallMethod(AfterInsert, nil)
+		destSlice.Index(index).Set(dest)
+		index++
+	}
+	return nil
 }
 
 func (s *Session) Find(values interface{}) error {
@@ -52,6 +75,22 @@ func (s *Session) Find(values interface{}) error {
 	}
 
 	return rows.Close()
+}
+
+// insertInBatches imitate gorm CreateInBatches
+func insertInBatches(value interface{}) []interface{} {
+	values := make([]interface{}, 0)
+	reflectValue := reflect.Indirect(reflect.ValueOf(value))
+	switch reflectValue.Kind() {
+	case reflect.Slice, reflect.Array:
+		reflectLen := reflectValue.Len()
+		for i := 0; i < reflectLen; i++ {
+			values = append(values, reflectValue.Index(i).Interface())
+		}
+	default:
+		values = append(values, value)
+	}
+	return values
 }
 
 // support map[string]interface{}

@@ -88,7 +88,8 @@ func (s *Session) QueryRows() (rows *sql.Rows, err error) {
 
 // QueToDoller  ? to $num
 func QueToDoller(str string) string {
-	for i := 0; i < strings.Count(str, "?"); i++ {
+	queCount := strings.Count(str, "?")
+	for i := 0; i < queCount; i++ {
 		str = strings.Replace(str, "?", "$"+strconv.Itoa(i+1), 1)
 	}
 	return str

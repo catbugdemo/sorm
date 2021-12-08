@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"github.com/catbugdemo/sorm/dialect"
 	"github.com/catbugdemo/sorm/session"
+	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 	"log"
@@ -57,17 +59,21 @@ func TestInsert(t *testing.T) {
 	})
 
 	t.Run("Insert", func(t *testing.T) {
-		insert, err := db.Model(&UserTest{}).
-			Insert(&UserTest{
-				Id:         1,
-				CreateTime: time.Now(),
-				Name:       "111",
-				NameId:     111,
-			})
+		test1 := UserTest{
+			Name:   "222",
+			NameId: 333}
+		test2 := UserTest{
+			Name:   "555",
+			NameId: 666,
+		}
+		ut := make([]UserTest, 0, 2)
+		ut = append(ut, test1, test2)
+		err := db.Insert(&ut)
 		if err != nil {
 			panic(err)
 		}
-		fmt.Println(insert)
+		fmt.Println(ut)
+		fmt.Println()
 	})
 
 	t.Run("Find", func(t *testing.T) {
@@ -105,6 +111,14 @@ func TestInsert(t *testing.T) {
 	})
 
 	t.Run("rollabck", func(t *testing.T) {
+		d := sqlx.DB{}
+		driverName := reflect.Indirect(reflect.ValueOf(d)).FieldByName("driverName").String()
+		dial, ok := dialect.GetDialect(driverName)
+		if !ok {
+			log.Fatalf("dialect %s Not Found", driverName)
+			return
+		}
+		_ = session.New(d.DB, dial)
 	})
 }
 
@@ -119,4 +133,7 @@ func TestHasTable(t *testing.T) {
 	if !db.Model(UserTest{}).HasTable() {
 		log.Println("fail")
 	}
+
+	/*	d := gorm.DB{}
+		d.Create()*/
 }
