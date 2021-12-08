@@ -97,7 +97,7 @@ func insertInBatches(value interface{}) []interface{} {
 
 // support map[string]interface{}
 // also support kv list: "Name", "Tom", "Age", 18, ....
-func (s *Session) Update(kv ...interface{}) (int64, error) {
+func (s *Session) Update(kv ...interface{}) error {
 	s.CallMethod(BeforeUpdate, nil)
 	m, ok := kv[0].(map[string]interface{})
 	if !ok {
@@ -110,10 +110,15 @@ func (s *Session) Update(kv ...interface{}) (int64, error) {
 	sql, vars := s.clause.Build(clause.UPDATE, clause.WHERE)
 	result, err := s.Raw(sql, vars...).Exec()
 	if err != nil {
-		return 0, err
+		return err
 	}
 	s.CallMethod(AfterUpdate, nil)
-	return result.RowsAffected()
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	log.Info("INSERT affects rows:", affected)
+	return nil
 }
 
 /*func (s *Session) Updates(kv ...interface{}) (int64, error) {
