@@ -86,9 +86,8 @@ func TestInsert(t *testing.T) {
 	})
 
 	t.Run("update", func(t *testing.T) {
-		update, err := db.Model(UserTest{}).Where("id=?", 2).Update("name", "222")
+		err := db.Model(UserTest{}).Where("id=?", 2).Update("name", "222")
 		assert.Nil(t, err)
-		fmt.Println(update)
 	})
 
 	t.Run("delete", func(t *testing.T) {
