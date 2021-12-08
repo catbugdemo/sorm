@@ -78,7 +78,7 @@ func TestInsert(t *testing.T) {
 
 	t.Run("Find", func(t *testing.T) {
 		var users []UserTest
-		err := db.Find(&users)
+		err := db.Where("id in (?)", []int{30, 31}).Find(&users)
 		if err != nil {
 			panic(err)
 		}

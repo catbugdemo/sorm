@@ -27,7 +27,7 @@ func (c *Clause) Set(name Type, vars ...interface{}) {
 		c.sqlVars = make(map[Type][]interface{})
 	}
 
-	sql, vars := generators[name](vars...)
+	sql, vars := generators[name](c.sql[name], c.sqlVars[name], vars...)
 	c.sql[name] = sql
 	c.sqlVars[name] = vars
 }

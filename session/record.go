@@ -3,6 +3,7 @@ package session
 import (
 	"errors"
 	"github.com/catbugdemo/sorm/clause"
+	"github.com/catbugdemo/sorm/log"
 	"reflect"
 )
 
@@ -45,6 +46,7 @@ func (s *Session) Insert(values interface{}) error {
 		destSlice.Index(index).Set(dest)
 		index++
 	}
+	log.Info("INSERT affects rows:", index)
 	return nil
 }
 
@@ -113,6 +115,10 @@ func (s *Session) Update(kv ...interface{}) (int64, error) {
 	s.CallMethod(AfterUpdate, nil)
 	return result.RowsAffected()
 }
+
+/*func (s *Session) Updates(kv ...interface{}) (int64, error) {
+
+}*/
 
 func (s *Session) Delete() (int64, error) {
 	s.CallMethod(BeforeDelete, nil)
