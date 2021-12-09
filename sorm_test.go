@@ -27,7 +27,7 @@ func InitDB() *session.Session {
 }
 
 func TestSession_CreateTable(t *testing.T) {
-	engine, err := NewEngine("postgres", fmt.Sprint("host=118.89.121.211 port=5432 user=postgres password=123456 dbname=mydb sslmode=disable"))
+	engine, err := NewEngine("postgres", fmt.Sprint("host=127.0.0.1 port=5432 user=postgres password=123456 dbname=mydb sslmode=disable"))
 	if err != nil {
 		panic(err)
 	}
@@ -60,8 +60,9 @@ func TestInsert(t *testing.T) {
 
 	t.Run("Insert", func(t *testing.T) {
 		test1 := UserTest{
-			Name:   "222",
-			NameId: 333}
+			CreateTime: time.Now().AddDate(0, 0, -1),
+			Name:       "222",
+			NameId:     333}
 		test2 := UserTest{
 			Name:   "555",
 			NameId: 666,
@@ -77,7 +78,7 @@ func TestInsert(t *testing.T) {
 
 	t.Run("Find", func(t *testing.T) {
 		var users []UserTest
-		err := db.Find(&users)
+		err := db.Limit(1).Offset(1).Find(&users)
 		if err != nil {
 			panic(err)
 		}
@@ -85,12 +86,22 @@ func TestInsert(t *testing.T) {
 	})
 
 	t.Run("update", func(t *testing.T) {
-		err := db.Model(UserTest{}).Where("id=?", 73).Update("name", "111")
+		err := db.Model(UserTest{}).Where("id=?", 76).Update("name", "111")
+		assert.Nil(t, err)
+	})
+
+	t.Run("udpates", func(t *testing.T) {
+		/*		m := UserTest{
+				Name: "111",
+			}*/
+		err := db.Where("id=?", 76).Updates(map[string]interface{}{
+			"name": "111",
+		})
 		assert.Nil(t, err)
 	})
 
 	t.Run("delete", func(t *testing.T) {
-		err := db.Where("name=?", "111").Delete()
+		err := db.Where("name=?", "111").Where("id=?", 1).Delete()
 		assert.Nil(t, err)
 	})
 
@@ -103,7 +114,7 @@ func TestInsert(t *testing.T) {
 
 	t.Run("first", func(t *testing.T) {
 		var ut UserTest
-		err := db.Where("id in (?)", []int{74}).Where("name=?", 222).First(&ut)
+		err := db.Where("id in (?)", []int{75}).First(&ut)
 		assert.Nil(t, err)
 		fmt.Println(ut)
 	})

@@ -70,6 +70,10 @@ func (s *Session) Exec() (result sql.Result, err error) {
 	return
 }
 
+func (s *Session) Scan(values interface{}) {
+
+}
+
 // QueryRow gets a record from db
 func (s *Session) QueryRow() *sql.Row {
 	defer s.Clear()

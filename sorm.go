@@ -12,6 +12,14 @@ type Engine struct {
 	dialect dialect.Dialect
 }
 
+func Open(driver, source string) (*session.Session, error) {
+	engine, err := NewEngine(driver, source)
+	if err != nil {
+		return nil, err
+	}
+	return engine.NewSession(), nil
+}
+
 func NewEngine(driver, source string) (e *Engine, err error) {
 	db, err := sql.Open(driver, source)
 	if err != nil {

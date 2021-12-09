@@ -115,17 +115,51 @@ func insertInBatches(value interface{}) []interface{} {
 	return values
 }
 
-// support map[string]interface{}
-// also support kv list: "SqlName", "Tom", "Age", 18, ....
+// support kv list: "SqlName", "Tom", "Age", 18, ....
 func (s *Session) Update(kv ...interface{}) error {
 	s.CallMethod(BeforeUpdate, nil)
-	m, ok := kv[0].(map[string]interface{})
-	if !ok {
-		m = make(map[string]interface{})
-		for i := 0; i < len(kv); i += 2 {
-			m[kv[i].(string)] = kv[i+1]
-		}
+	m := make(map[string]interface{})
+	for i := 0; i < len(kv); i += 2 {
+		m[kv[i].(string)] = kv[i+1]
 	}
+
+	s.clause.Set(clause.UPDATE, s.content.TableName, m)
+	sql, vars := s.clause.Build(clause.UPDATE, clause.WHERE)
+	result, err := s.Raw(sql, vars...).Exec()
+	if err != nil {
+		return err
+	}
+	s.CallMethod(AfterUpdate, nil)
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	log.Info("Update affects rows:", affected)
+	if affected == 0 {
+		return log.ErrRecordNotFound
+	}
+	return nil
+}
+
+// support map[string]interface{}
+// also support ptr struct
+func (s *Session) Updates(values interface{}) error {
+	s.CallMethod(BeforeUpdate, nil)
+	m := make(map[string]interface{})
+	dest := reflect.ValueOf(values)
+	switch dest.Kind() {
+	case reflect.Map:
+		m = values.(map[string]interface{})
+	case reflect.Struct:
+		table := s.Model(values).RefTable()
+		fieldSqlNames, fieldValues := table.RecordValues(values)
+		for i, sqlName := range fieldSqlNames {
+			m[sqlName] = fieldValues[i]
+		}
+	default:
+		return errors.New("Updates can only support map[string]interfa or struct")
+	}
+
 	s.clause.Set(clause.UPDATE, s.content.TableName, m)
 	sql, vars := s.clause.Build(clause.UPDATE, clause.WHERE)
 	result, err := s.Raw(sql, vars...).Exec()

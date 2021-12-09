@@ -110,7 +110,7 @@ func _orderby(values ...interface{}) (string, []interface{}) {
 }
 
 func _offset(values ...interface{}) (string, []interface{}) {
-	return fmt.Sprintf("OFFSET %d", values[0]), []interface{}{}
+	return "OFFSET ?", values
 }
 
 func _update(values ...interface{}) (string, []interface{}) {
