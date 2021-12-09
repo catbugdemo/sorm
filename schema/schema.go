@@ -20,6 +20,7 @@ type Field struct {
 type Schema struct {
 	Model       interface{}
 	Name        string
+	SqlName     string
 	Fields      []*Field
 	FieldNames  []string
 	fieldMap    map[string]*Field
@@ -35,7 +36,8 @@ func Parse(dest interface{}, d dialect.Dialect) *Schema {
 	modelType := reflect.Indirect(reflect.ValueOf(dest)).Type()
 	schema := &Schema{
 		Model:       dest,
-		Name:        GetUnderlineName(modelType.Name()),
+		Name:        modelType.Name(),
+		SqlName:     GetUnderlineName(modelType.Name()),
 		fieldMap:    make(map[string]*Field),
 		FieldSqlMap: make(map[string]string),
 	}

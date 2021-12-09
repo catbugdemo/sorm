@@ -16,7 +16,7 @@ var TestDial, _ = dialect.GetDialect("sqlite3")
 func TestParse(t *testing.T) {
 	schema := Parse(&User{}, TestDial)
 
-	assert.Equal(t, "User", schema.Name)
+	assert.Equal(t, "User", schema.SqlName)
 	assert.Len(t, schema.Fields, 2)
-	assert.Equal(t, schema.GetField("Name").Type, "text")
+	assert.Equal(t, schema.GetField("SqlName").Type, "text")
 }

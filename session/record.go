@@ -34,7 +34,7 @@ func (s *Session) Insert(values interface{}) error {
 			recordValues = append(recordValues, table.FieldNames)
 		}
 		fieldSqlNames, fieldValues := table.RecordValues(value)
-		s.clause.Set(clause.INSERT, table.Name, fieldSqlNames)
+		s.clause.Set(clause.INSERT, table.SqlName, fieldSqlNames)
 		recordValues = append(recordValues, fieldValues)
 	}
 	s.clause.Set(clause.VALUES, recordValues...)
@@ -70,11 +70,10 @@ func (s *Session) Find(values interface{}) error {
 	destType := destSlice.Type().Elem()
 	table := s.Model(reflect.New(destType).Elem().Interface()).RefTable()
 	s.CallMethod(BeforeQuery, nil)
-	if get, _ := s.clause.Get(clause.SELECT); len(get) == 0 {
-		s.clause.Set(clause.SELECT, table.FieldNames)
-	}
+	s.clause.Set(clause.SELECT, s.content.SelectFields)
+	s.clause.Set(clause.TABLE, s.content.TableName)
 	if get, _ := s.clause.Get(clause.TABLE); len(get) == 0 {
-		s.clause.Set(clause.TABLE, table.Name)
+		s.clause.Set(clause.TABLE, table.SqlName)
 	}
 	sql, vars := s.clause.Build(clause.SELECT, clause.TABLE, clause.WHERE, clause.ORDERBY, clause.LIMIT, clause.OFFSET)
 	rows, err := s.Raw(sql, vars...).QueryRows()
@@ -85,8 +84,8 @@ func (s *Session) Find(values interface{}) error {
 	for rows.Next() {
 		dest := reflect.New(destType).Elem()
 		var result []interface{}
-		for _, field := range table.Fields {
-			result = append(result, dest.FieldByName(field.Name).Addr().Interface())
+		for _, field := range s.content.SelectFields {
+			result = append(result, dest.FieldByName(s.RefTable().FieldSqlMap[field]).Addr().Interface())
 		}
 		if err = rows.Scan(result...); err != nil {
 			return err
@@ -94,7 +93,9 @@ func (s *Session) Find(values interface{}) error {
 		s.CallMethod(AfterQuery, dest.Addr().Interface())
 		destSlice.Set(reflect.Append(destSlice, dest))
 	}
-
+	if destSlice.Len() == 0 {
+		return log.ErrRecordNotFound
+	}
 	return rows.Close()
 }
 
@@ -115,7 +116,7 @@ func insertInBatches(value interface{}) []interface{} {
 }
 
 // support map[string]interface{}
-// also support kv list: "Name", "Tom", "Age", 18, ....
+// also support kv list: "SqlName", "Tom", "Age", 18, ....
 func (s *Session) Update(kv ...interface{}) error {
 	s.CallMethod(BeforeUpdate, nil)
 	m, ok := kv[0].(map[string]interface{})
@@ -125,7 +126,7 @@ func (s *Session) Update(kv ...interface{}) error {
 			m[kv[i].(string)] = kv[i+1]
 		}
 	}
-	s.clause.Set(clause.UPDATE, s.RefTable().Name, m)
+	s.clause.Set(clause.UPDATE, s.content.TableName, m)
 	sql, vars := s.clause.Build(clause.UPDATE, clause.WHERE)
 	result, err := s.Raw(sql, vars...).Exec()
 	if err != nil {
@@ -137,12 +138,15 @@ func (s *Session) Update(kv ...interface{}) error {
 		return err
 	}
 	log.Info("Update affects rows:", affected)
+	if affected == 0 {
+		return log.ErrRecordNotFound
+	}
 	return nil
 }
 
 func (s *Session) Delete() error {
 	s.CallMethod(BeforeDelete, nil)
-	s.clause.Set(clause.DELETE, s.RefTable().Name)
+	s.clause.Set(clause.DELETE, s.content.TableName)
 	sql, vars := s.clause.Build(clause.DELETE, clause.WHERE)
 	result, err := s.Raw(sql, vars...).Exec()
 	if err != nil {
@@ -154,12 +158,16 @@ func (s *Session) Delete() error {
 		return err
 	}
 	log.Info("DELETE affects rows:", affected)
+	if affected == 0 {
+		return log.ErrRecordNotFound
+	}
 	return nil
 }
 
 func (s *Session) Count(values interface{}) error {
-	s.clause.Set(clause.COUNT, s.RefTable().Name)
-	sql, vars := s.clause.Build(clause.COUNT, clause.WHERE)
+	s.clause.Set(clause.COUNT, s.RefTable().SqlName)
+	s.clause.Set(clause.TABLE, s.content.TableName)
+	sql, vars := s.clause.Build(clause.COUNT, clause.TABLE, clause.WHERE)
 	row := s.Raw(sql, vars...).QueryRow()
 	if err := row.Scan(values); err != nil {
 		return err
@@ -182,8 +190,15 @@ func (s *Session) Select(query interface{}, values ...interface{}) *Session {
 		for _, value := range values {
 			list = append(list, value.(string))
 		}
+		s.content.SelectFields = list
 		s.clause.Set(clause.SELECT, list)
 	}
+	return s
+}
+
+func (s *Session) Table(desc string) *Session {
+	s.content.TableName = desc
+	s.clause.Set(clause.TABLE, desc)
 	return s
 }
 

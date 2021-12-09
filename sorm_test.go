@@ -68,16 +68,16 @@ func TestInsert(t *testing.T) {
 		}
 		ut := make([]UserTest, 0, 2)
 		ut = append(ut, test1, test2)
-		err := db.Insert(&ut)
+		err := db.Create(&test1)
 		if err != nil {
 			panic(err)
 		}
-		fmt.Println(ut)
+		fmt.Println(&test1)
 	})
 
 	t.Run("Find", func(t *testing.T) {
 		var users []UserTest
-		err := db.Where("id=?", 1).Where("name=?", "12").Find(&users)
+		err := db.Find(&users)
 		if err != nil {
 			panic(err)
 		}
@@ -85,12 +85,12 @@ func TestInsert(t *testing.T) {
 	})
 
 	t.Run("update", func(t *testing.T) {
-		err := db.Model(UserTest{}).Where("id=?", 2).Update("name", "222")
+		err := db.Model(UserTest{}).Where("id=?", 73).Update("name", "111")
 		assert.Nil(t, err)
 	})
 
 	t.Run("delete", func(t *testing.T) {
-		err := db.Where("id=?", 1).Delete()
+		err := db.Where("name=?", "111").Delete()
 		assert.Nil(t, err)
 	})
 
@@ -103,7 +103,7 @@ func TestInsert(t *testing.T) {
 
 	t.Run("first", func(t *testing.T) {
 		var ut UserTest
-		err := db.First(&ut)
+		err := db.Where("id in (?)", []int{74}).Where("name=?", 222).First(&ut)
 		assert.Nil(t, err)
 		fmt.Println(ut)
 	})
@@ -120,11 +120,11 @@ func TestInsert(t *testing.T) {
 	})
 }
 
-func (o *UserTest) AfterQuery(s *session.Session) error {
+/*func (o *UserTest) AfterQuery(s *session.Session) error {
 	log.Println("After query: ", o)
 	o.NameId = 0
 	return nil
-}
+}*/
 
 func TestHasTable(t *testing.T) {
 	db := InitDB()

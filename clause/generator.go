@@ -99,10 +99,10 @@ func _where(values ...interface{}) (string, []interface{}) {
 		// 计数 ? 数量
 		str = strings.Join(split, " IN ")
 	}
-	if strings.Contains(str, "WHERE") {
+	if strings.Contains(str, " WHERE ") {
 		return fmt.Sprintf("%s", str), vars
 	}
-	return fmt.Sprintf("WHERE %s", str), vars
+	return fmt.Sprintf(" WHERE %s", str), vars
 }
 
 func _orderby(values ...interface{}) (string, []interface{}) {
@@ -131,5 +131,5 @@ func _delete(values ...interface{}) (string, []interface{}) {
 }
 
 func _count(values ...interface{}) (string, []interface{}) {
-	return _select(values[0], []string{"count(*)"})
+	return _select([]string{"count(*)"})
 }

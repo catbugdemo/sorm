@@ -18,6 +18,7 @@ type Session struct {
 	clause   clause.Clause
 	sql      strings.Builder
 	sqlVars  []interface{}
+	content  Content
 }
 
 // CommonDB is a minimal function set of db
