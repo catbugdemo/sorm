@@ -1,6 +1,10 @@
 package clause
 
-import "testing"
+import (
+	"fmt"
+	"strings"
+	"testing"
+)
 
 func TestSelect(t *testing.T) {
 	var clause Clause
@@ -11,4 +15,12 @@ func TestSelect(t *testing.T) {
 
 	sql, vars := clause.Build(SELECT, WHERE, ORDERBY, LIMIT)
 	t.Log(sql, vars)
+}
+
+func TestCheckIn(t *testing.T) {
+	if strings.ContainsAny("IN", "in&IN") {
+		fmt.Println("success")
+	} else {
+		fmt.Println("fail")
+	}
 }

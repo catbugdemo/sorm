@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-type generator func(sql string, sqlVars []interface{}, values ...interface{}) (string, []interface{})
+type generator func(values ...interface{}) (string, []interface{})
 
 var generators map[Type]generator
 
@@ -15,7 +15,9 @@ func init() {
 	generators[INSERT] = _insert
 	generators[VALUES] = _values
 	generators[SELECT] = _select
+	generators[TABLE] = _table
 	generators[LIMIT] = _limit
+	generators[OFFSET] = _offset
 	generators[WHERE] = _where
 	generators[ORDERBY] = _orderby
 	generators[UPDATE] = _update
@@ -31,13 +33,13 @@ func genBindVars(num int) string {
 	return strings.Join(vars, ",")
 }
 
-func _insert(sql string, sqlVars []interface{}, values ...interface{}) (string, []interface{}) {
+func _insert(values ...interface{}) (string, []interface{}) {
 	tableName := values[0]
 	fields := strings.Join(values[1].([]string), ",")
 	return fmt.Sprintf("INSERT INTO %s(%v)", tableName, fields), []interface{}{}
 }
 
-func _values(sql string, sqlVars []interface{}, values ...interface{}) (string, []interface{}) {
+func _values(values ...interface{}) (string, []interface{}) {
 	// VALUES ($v1) ,($v2) , ...
 	var bindStr string
 	var sqlStr strings.Builder
@@ -58,65 +60,60 @@ func _values(sql string, sqlVars []interface{}, values ...interface{}) (string, 
 	return sqlStr.String(), vars
 }
 
-func _select(sql string, sqlVars []interface{}, values ...interface{}) (string, []interface{}) {
+func _select(values ...interface{}) (string, []interface{}) {
 	// SELECT $fields FROM $tableName
-	tableName := values[0]
-	fields := strings.Join(values[1].([]string), ",")
-	return fmt.Sprintf("SELECT %v FROM %s", fields, tableName), []interface{}{}
+	return fmt.Sprintf("SELECT %v FROM", strings.Join(values[0].([]string), ",")), []interface{}{}
 }
 
-func _limit(sql string, sqlVars []interface{}, values ...interface{}) (string, []interface{}) {
+func _table(values ...interface{}) (string, []interface{}) {
+	return fmt.Sprintf("%s ", values[0]), []interface{}{}
+}
+
+func _limit(values ...interface{}) (string, []interface{}) {
 	// LIMIT $num
 	return "LIMIT ?", values
 }
 
-func _where(sql string, sqlVars []interface{}, values ...interface{}) (string, []interface{}) {
+func _where(values ...interface{}) (string, []interface{}) {
 	// WHERE $desc
 	desc, vars := values[0], values[1:]
-	str := strings.ToLower(desc.(string))
-	str, vars = checkIn(str, vars...)
-	// 已经存在数据了
-	if len(sqlVars) > 0 {
-		sql += " and " + str
-		sqlVars = append(sqlVars, vars...)
-		return fmt.Sprintf("%s", sql), sqlVars
-	}
-	return fmt.Sprintf("WHERE %s", str), vars
-}
-
-// checkIn in 的特殊处理
-func checkIn(str string, vars ...interface{}) (string, []interface{}) {
-	if strings.Contains(str, " in") {
-		split := strings.Split(str, " in")
-		var count int
-		for i, _ := range split {
-			if i > 0 {
-				reflectValue := reflect.Indirect(reflect.ValueOf(vars[count]))
+	str := strings.ReplaceAll(desc.(string), " in ", " IN ")
+	if strings.Contains(str, " IN ") {
+		split := strings.Split(str, " IN ")
+		count := strings.Count(split[0], "?")
+		for i := 1; i < len(split); i++ {
+			reflectValue := reflect.Indirect(reflect.ValueOf(vars[count]))
+			switch reflectValue.Kind() {
+			case reflect.Slice, reflect.Array:
 				reflectLen := reflectValue.Len()
-				switch reflectValue.Kind() {
-				case reflect.Slice, reflect.Array:
-					vars = append(vars[:count], vars[count+1:]...) // delete slice
-					for j := 0; j < reflectLen; j++ {
-						vars = append(vars[:count+j], append([]interface{}{reflectValue.Index(j).Interface()}, vars[count+j:]...)...)
-					}
+				vars = append(vars[:count], vars[count+1:]...) // delete slice
+				for j := 0; j < reflectLen; j++ {
+					vars = append(vars[:count+j], append([]interface{}{reflectValue.Index(j).Interface()}, vars[count+j:]...)...)
 				}
 				// 修改 ? 数量
 				repeat := strings.Repeat("?,", reflectLen)
 				split[i] = strings.Replace(split[i], "?", repeat[:len(repeat)-1], 1)
 			}
-			// 计数 ? 数量
 			count += strings.Count(split[i], "?")
 		}
-		str = strings.Join(split, " IN")
+		// 计数 ? 数量
+		str = strings.Join(split, " IN ")
 	}
-	return str, vars
+	if strings.Contains(str, "WHERE") {
+		return fmt.Sprintf("%s", str), vars
+	}
+	return fmt.Sprintf("WHERE %s", str), vars
 }
 
-func _orderby(sql string, sqlVars []interface{}, values ...interface{}) (string, []interface{}) {
+func _orderby(values ...interface{}) (string, []interface{}) {
 	return fmt.Sprintf("ORDER BY %s", values[0]), []interface{}{}
 }
 
-func _update(sql string, sqlVars []interface{}, values ...interface{}) (string, []interface{}) {
+func _offset(values ...interface{}) (string, []interface{}) {
+	return fmt.Sprintf("OFFSET %d", values[0]), []interface{}{}
+}
+
+func _update(values ...interface{}) (string, []interface{}) {
 	// UPDATE $tableName set $fields
 	tableName := values[0]
 	m := values[1].(map[string]interface{})
@@ -129,10 +126,10 @@ func _update(sql string, sqlVars []interface{}, values ...interface{}) (string, 
 	return fmt.Sprintf("UPDATE %v SET %v", tableName, strings.Join(keys, ",")), vars
 }
 
-func _delete(sql string, sqlVars []interface{}, values ...interface{}) (string, []interface{}) {
+func _delete(values ...interface{}) (string, []interface{}) {
 	return fmt.Sprintf("DELETE FROM %s", values[0]), []interface{}{}
 }
 
-func _count(sql string, sqlVars []interface{}, values ...interface{}) (string, []interface{}) {
-	return _select(sql, sqlVars, values[0], []string{"count(*)"})
+func _count(values ...interface{}) (string, []interface{}) {
+	return _select(values[0], []string{"count(*)"})
 }

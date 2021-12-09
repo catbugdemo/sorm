@@ -18,11 +18,12 @@ type Field struct {
 
 // Schema represents a table of database
 type Schema struct {
-	Model      interface{}
-	Name       string
-	Fields     []*Field
-	FieldNames []string
-	fieldMap   map[string]*Field
+	Model       interface{}
+	Name        string
+	Fields      []*Field
+	FieldNames  []string
+	fieldMap    map[string]*Field
+	FieldSqlMap map[string]string
 }
 
 func (schema *Schema) GetField(name string) *Field {
@@ -33,9 +34,10 @@ func (schema *Schema) GetField(name string) *Field {
 func Parse(dest interface{}, d dialect.Dialect) *Schema {
 	modelType := reflect.Indirect(reflect.ValueOf(dest)).Type()
 	schema := &Schema{
-		Model:    dest,
-		Name:     GetUnderlineName(modelType.Name()),
-		fieldMap: make(map[string]*Field),
+		Model:       dest,
+		Name:        GetUnderlineName(modelType.Name()),
+		fieldMap:    make(map[string]*Field),
+		FieldSqlMap: make(map[string]string),
 	}
 
 	for i := 0; i < modelType.NumField(); i++ {
@@ -55,6 +57,7 @@ func Parse(dest interface{}, d dialect.Dialect) *Schema {
 			schema.Fields = append(schema.Fields, field)
 			schema.FieldNames = append(schema.FieldNames, field.SqlName)
 			schema.fieldMap[p.Name] = field // fieldMap 通过名称作为键值,能够快速查找 field
+			schema.FieldSqlMap[field.SqlName] = p.Name
 		}
 	}
 	return schema

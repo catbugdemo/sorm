@@ -13,7 +13,9 @@ const (
 	INSERT Type = iota
 	VALUES
 	SELECT
+	TABLE
 	LIMIT
+	OFFSET
 	WHERE
 	ORDERBY
 	UPDATE
@@ -27,7 +29,7 @@ func (c *Clause) Set(name Type, vars ...interface{}) {
 		c.sqlVars = make(map[Type][]interface{})
 	}
 
-	sql, vars := generators[name](c.sql[name], c.sqlVars[name], vars...)
+	sql, vars := generators[name](vars...)
 	c.sql[name] = sql
 	c.sqlVars[name] = vars
 }
@@ -42,4 +44,8 @@ func (c *Clause) Build(orders ...Type) (string, []interface{}) {
 		}
 	}
 	return strings.Join(sqls, " "), vars
+}
+
+func (c *Clause) Get(name Type) (string, []interface{}) {
+	return c.sql[name], c.sqlVars[name]
 }

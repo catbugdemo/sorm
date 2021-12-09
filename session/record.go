@@ -7,14 +7,29 @@ import (
 	"reflect"
 )
 
-func (s *Session) Insert(values interface{}) error {
-	if reflect.ValueOf(values).Kind() != reflect.Ptr {
-		return errors.New("values not pointer")
+func (s *Session) Create(values interface{}) error {
+	switch reflect.ValueOf(values).Kind() {
+	case reflect.Slice, reflect.Array:
+		return errors.New("Create can only insert one date")
+	case reflect.Ptr:
+		dest := reflect.Indirect(reflect.ValueOf(values))
+		destSlice := reflect.New(reflect.SliceOf(dest.Type())).Elem()
+		destSlice.Set(reflect.Append(destSlice, dest))
+		if err := s.Insert(destSlice.Addr().Interface()); err != nil {
+			return err
+		}
+		dest.Set(destSlice.Index(0))
+	default:
+		return errors.New("Model is not pointer")
 	}
+	return nil
+}
+
+func (s *Session) Insert(values interface{}) error {
 	recordValues := make([]interface{}, 0)
 	for _, value := range insertInBatches(values) {
-		s.CallMethod(BeforeInsert, value)
 		table := s.Model(value).RefTable()
+		s.CallMethod(BeforeInsert, value)
 		if len(recordValues) == 0 { // 添加返回数据
 			recordValues = append(recordValues, table.FieldNames)
 		}
@@ -51,13 +66,17 @@ func (s *Session) Insert(values interface{}) error {
 }
 
 func (s *Session) Find(values interface{}) error {
-	s.CallMethod(BeforeQuery, nil)
 	destSlice := reflect.Indirect(reflect.ValueOf(values))
 	destType := destSlice.Type().Elem()
 	table := s.Model(reflect.New(destType).Elem().Interface()).RefTable()
-
-	s.clause.Set(clause.SELECT, table.Name, table.FieldNames)
-	sql, vars := s.clause.Build(clause.SELECT, clause.WHERE, clause.ORDERBY, clause.LIMIT)
+	s.CallMethod(BeforeQuery, nil)
+	if get, _ := s.clause.Get(clause.SELECT); len(get) == 0 {
+		s.clause.Set(clause.SELECT, table.FieldNames)
+	}
+	if get, _ := s.clause.Get(clause.TABLE); len(get) == 0 {
+		s.clause.Set(clause.TABLE, table.Name)
+	}
+	sql, vars := s.clause.Build(clause.SELECT, clause.TABLE, clause.WHERE, clause.ORDERBY, clause.LIMIT, clause.OFFSET)
 	rows, err := s.Raw(sql, vars...).QueryRows()
 	if err != nil {
 		return err
@@ -117,34 +136,35 @@ func (s *Session) Update(kv ...interface{}) error {
 	if err != nil {
 		return err
 	}
-	log.Info("INSERT affects rows:", affected)
+	log.Info("Update affects rows:", affected)
 	return nil
 }
 
-/*func (s *Session) Updates(kv ...interface{}) (int64, error) {
-
-}*/
-
-func (s *Session) Delete() (int64, error) {
+func (s *Session) Delete() error {
 	s.CallMethod(BeforeDelete, nil)
 	s.clause.Set(clause.DELETE, s.RefTable().Name)
 	sql, vars := s.clause.Build(clause.DELETE, clause.WHERE)
 	result, err := s.Raw(sql, vars...).Exec()
 	if err != nil {
-		return 0, err
+		return err
 	}
 	s.CallMethod(AfterDelete, nil)
-	return result.RowsAffected()
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	log.Info("DELETE affects rows:", affected)
+	return nil
 }
 
-func (s *Session) Count() (int64, error) {
+func (s *Session) Count(values interface{}) error {
 	s.clause.Set(clause.COUNT, s.RefTable().Name)
 	sql, vars := s.clause.Build(clause.COUNT, clause.WHERE)
-	result, err := s.Raw(sql, vars...).Exec()
-	if err != nil {
-		return 0, err
+	row := s.Raw(sql, vars...).QueryRow()
+	if err := row.Scan(values); err != nil {
+		return err
 	}
-	return result.RowsAffected()
+	return nil
 }
 
 func (s *Session) Limit(num int) *Session {
@@ -152,14 +172,39 @@ func (s *Session) Limit(num int) *Session {
 	return s
 }
 
+func (s *Session) Select(query interface{}, values ...interface{}) *Session {
+	switch v := query.(type) {
+	case []string:
+		s.clause.Set(clause.SELECT, v)
+	default:
+		list := make([]string, 0, 1+len(values))
+		list = append(list, query.(string))
+		for _, value := range values {
+			list = append(list, value.(string))
+		}
+		s.clause.Set(clause.SELECT, list)
+	}
+	return s
+}
+
 func (s *Session) Where(desc string, args ...interface{}) *Session {
 	var vars []interface{}
+	sql, sqlVars := s.clause.Get(clause.WHERE)
+	if len(sql) > 0 {
+		desc = sql + " AND " + desc
+		args = append(sqlVars, args...)
+	}
 	s.clause.Set(clause.WHERE, append(append(vars, desc), args...)...)
 	return s
 }
 
 func (s *Session) OrderBy(desc string) *Session {
 	s.clause.Set(clause.ORDERBY, desc)
+	return s
+}
+
+func (s *Session) Offset(num int) *Session {
+	s.clause.Set(clause.OFFSET, num)
 	return s
 }
 
@@ -170,7 +215,7 @@ func (s *Session) First(values interface{}) error {
 		return err
 	}
 	if destSlice.Len() == 0 {
-		return errors.New("record not found")
+		return log.ErrRecordNotFound
 	}
 	dest.Set(destSlice.Index(0))
 	return nil

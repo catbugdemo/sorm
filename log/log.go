@@ -1,11 +1,14 @@
 package log
 
 import (
+	"errors"
 	"io/ioutil"
 	"log"
 	"os"
 	"sync"
 )
+
+var ErrRecordNotFound = errors.New("record not found")
 
 var (
 	errLog  = log.New(os.Stdout, "\033[31m[error]\033[0m ", log.Ldate|log.Ltime|log.LstdFlags|log.Lshortfile)

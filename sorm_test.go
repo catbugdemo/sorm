@@ -73,12 +73,11 @@ func TestInsert(t *testing.T) {
 			panic(err)
 		}
 		fmt.Println(ut)
-		fmt.Println()
 	})
 
 	t.Run("Find", func(t *testing.T) {
 		var users []UserTest
-		err := db.Where("id in (?)", []int{30, 31}).Find(&users)
+		err := db.Where("id=?", 1).Where("name=?", "12").Find(&users)
 		if err != nil {
 			panic(err)
 		}
@@ -91,13 +90,13 @@ func TestInsert(t *testing.T) {
 	})
 
 	t.Run("delete", func(t *testing.T) {
-		i, err := db.Where("id=?", 1).Delete()
+		err := db.Where("id=?", 1).Delete()
 		assert.Nil(t, err)
-		fmt.Println(i)
 	})
 
 	t.Run("count", func(t *testing.T) {
-		count, err := db.Count()
+		var count int
+		err := db.Count(&count)
 		assert.Nil(t, err)
 		fmt.Println(count)
 	})
