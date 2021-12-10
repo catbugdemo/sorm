@@ -6,6 +6,7 @@ import (
 	"github.com/catbugdemo/sorm/dialect"
 	"github.com/catbugdemo/sorm/log"
 	"github.com/catbugdemo/sorm/schema"
+	"reflect"
 	"strconv"
 	"strings"
 )
@@ -62,40 +63,68 @@ func (s *Session) Raw(sql string, values ...interface{}) *Session {
 // Exec raw sql with sqlVars
 func (s *Session) Exec() (result sql.Result, err error) {
 	defer s.Clear()
-	log.Info(s.sql.String(), s.sqlVars)
 	// 将 ？ 改成 $num
-	if result, err = s.DB().Exec(QueToDoller(s.sql.String()), s.sqlVars...); err != nil {
+	sql, sqlVars, logs := QueToDoller(s.sql.String(), s.sqlVars)
+	log.Info(": " + logs)
+	if result, err = s.DB().Exec(sql, sqlVars...); err != nil {
 		log.Error(err)
 	}
 	return
 }
 
-func (s *Session) Scan(values interface{}) {
-
-}
-
 // QueryRow gets a record from db
 func (s *Session) QueryRow() *sql.Row {
 	defer s.Clear()
-	log.Info(s.sql.String(), s.sqlVars)
-	return s.DB().QueryRow(QueToDoller(s.sql.String()), s.sqlVars...)
+	sql, sqlVars, logs := QueToDoller(s.sql.String(), s.sqlVars)
+	log.Info(": " + logs)
+	return s.DB().QueryRow(sql, sqlVars...)
 }
 
 // QueryRows gets a list of records from db
 func (s *Session) QueryRows() (rows *sql.Rows, err error) {
 	defer s.Clear()
-	log.Info(s.sql.String(), s.sqlVars)
-	if rows, err = s.DB().Query(QueToDoller(s.sql.String()), s.sqlVars...); err != nil {
+	sql, sqlVars, logs := QueToDoller(s.sql.String(), s.sqlVars)
+	log.Info(": " + logs)
+	if rows, err = s.DB().Query(sql, sqlVars...); err != nil {
 		log.Error(err)
 	}
 	return
 }
 
 // QueToDoller  ? to $num
-func QueToDoller(str string) string {
-	queCount := strings.Count(str, "?")
-	for i := 0; i < queCount; i++ {
-		str = strings.Replace(str, "?", "$"+strconv.Itoa(i+1), 1)
+func QueToDoller(sql string, vars []interface{}) (string, []interface{}, string) {
+	sql = strings.ReplaceAll(sql, " in ", " IN ")
+	if strings.Contains(sql, " IN ") {
+		split := strings.Split(sql, " IN ")
+		count := strings.Count(split[0], "?")
+		for i := 1; i < len(split); i++ {
+			reflectValue := reflect.Indirect(reflect.ValueOf(vars[count]))
+			switch reflectValue.Kind() {
+			case reflect.Slice, reflect.Array:
+				reflectLen := reflectValue.Len()
+				vars = append(vars[:count], vars[count+1:]...) // delete slice
+				for j := 0; j < reflectLen; j++ {
+					vars = append(vars[:count+j], append([]interface{}{reflectValue.Index(j).Interface()}, vars[count+j:]...)...)
+				}
+				// 修改 ? 数量
+				repeat := strings.Repeat("?,", reflectLen)
+				split[i] = strings.Replace(split[i], "?", repeat[:len(repeat)-1], 1)
+			}
+			count += strings.Count(split[i], "?")
+		}
+		// 计数 ? 数量
+		sql = strings.Join(split, " IN ")
 	}
-	return str
+	// log
+	queCount := strings.Count(sql, "?")
+	logs := sql
+	for i := 0; i < queCount; i++ {
+		logs = strings.Replace(sql, "?", vars[i].(string), 1)
+	}
+
+	// ? to $num
+	for i := 0; i < queCount; i++ {
+		sql = strings.Replace(sql, "?", "$"+strconv.Itoa(i+1), 1)
+	}
+	return sql, vars, logs
 }

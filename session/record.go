@@ -68,13 +68,10 @@ func (s *Session) Insert(values interface{}) error {
 func (s *Session) Find(values interface{}) error {
 	destSlice := reflect.Indirect(reflect.ValueOf(values))
 	destType := destSlice.Type().Elem()
-	table := s.Model(reflect.New(destType).Elem().Interface()).RefTable()
+	s.Model(reflect.New(destType).Elem().Interface())
 	s.CallMethod(BeforeQuery, nil)
 	s.clause.Set(clause.SELECT, s.content.SelectFields)
 	s.clause.Set(clause.TABLE, s.content.TableName)
-	if get, _ := s.clause.Get(clause.TABLE); len(get) == 0 {
-		s.clause.Set(clause.TABLE, table.SqlName)
-	}
 	sql, vars := s.clause.Build(clause.SELECT, clause.TABLE, clause.WHERE, clause.ORDERBY, clause.LIMIT, clause.OFFSET)
 	rows, err := s.Raw(sql, vars...).QueryRows()
 	if err != nil {
@@ -217,6 +214,7 @@ func (s *Session) Limit(num int) *Session {
 func (s *Session) Select(query interface{}, values ...interface{}) *Session {
 	switch v := query.(type) {
 	case []string:
+		s.content.SelectFields = v
 		s.clause.Set(clause.SELECT, v)
 	default:
 		list := make([]string, 0, 1+len(values))
@@ -267,5 +265,36 @@ func (s *Session) First(values interface{}) error {
 		return log.ErrRecordNotFound
 	}
 	dest.Set(destSlice.Index(0))
+	return nil
+}
+
+func (s *Session) Rows() *Session {
+	sql, sqlVars := s.clause.Build(clause.Operator...)
+	return s.Raw(sql, sqlVars...)
+}
+
+func (s *Session) Scan(values interface{}) error {
+	value := reflect.Indirect(reflect.ValueOf(values))
+	switch value.Kind() {
+	case reflect.Slice, reflect.Array:
+		rows, err := s.QueryRows()
+		if err != nil {
+			return err
+		}
+		dest := reflect.New(value.Type().Elem())
+		for rows.Next() {
+			if err = rows.Scan(dest.Interface()); err != nil {
+				return err
+			}
+			value.Set(reflect.Append(value, dest.Elem()))
+		}
+		if value.Len() == 0 {
+			return log.ErrRecordNotFound
+		}
+	default:
+		if err := s.QueryRow().Scan(value.Addr().Interface()); err != nil {
+			return err
+		}
+	}
 	return nil
 }

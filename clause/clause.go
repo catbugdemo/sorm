@@ -12,16 +12,18 @@ type Type int
 const (
 	INSERT Type = iota
 	VALUES
-	SELECT
-	TABLE
-	LIMIT
-	OFFSET
-	WHERE
-	ORDERBY
 	UPDATE
 	DELETE
 	COUNT
+	SELECT
+	TABLE
+	WHERE
+	LIMIT
+	OFFSET
+	ORDERBY
 )
+
+var Operator = []Type{INSERT, VALUES, UPDATE, DELETE, COUNT, SELECT, TABLE, WHERE, LIMIT, OFFSET, ORDERBY}
 
 func (c *Clause) Set(name Type, vars ...interface{}) {
 	if c.sql == nil {

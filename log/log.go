@@ -11,8 +11,8 @@ import (
 var ErrRecordNotFound = errors.New("record not found")
 
 var (
-	errLog  = log.New(os.Stdout, "\033[31m[error]\033[0m ", log.Ldate|log.Ltime|log.LstdFlags|log.Lshortfile)
-	infoLog = log.New(os.Stdout, "\033[32m[info]\033[0m ", log.Ldate|log.Ltime|log.LstdFlags|log.Lshortfile)
+	errLog  = log.New(os.Stdout, "\033[31m[error]\033[0m ", log.LstdFlags)
+	infoLog = log.New(os.Stdout, "\033[32m[info]\033[0m ", log.LstdFlags)
 	loggers = []*log.Logger{errLog, infoLog}
 	mu      sync.Mutex
 )

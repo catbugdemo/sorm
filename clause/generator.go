@@ -2,7 +2,6 @@ package clause
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 )
 
@@ -77,32 +76,10 @@ func _limit(values ...interface{}) (string, []interface{}) {
 func _where(values ...interface{}) (string, []interface{}) {
 	// WHERE $desc
 	desc, vars := values[0], values[1:]
-	str := strings.ReplaceAll(desc.(string), " in ", " IN ")
-	if strings.Contains(str, " IN ") {
-		split := strings.Split(str, " IN ")
-		count := strings.Count(split[0], "?")
-		for i := 1; i < len(split); i++ {
-			reflectValue := reflect.Indirect(reflect.ValueOf(vars[count]))
-			switch reflectValue.Kind() {
-			case reflect.Slice, reflect.Array:
-				reflectLen := reflectValue.Len()
-				vars = append(vars[:count], vars[count+1:]...) // delete slice
-				for j := 0; j < reflectLen; j++ {
-					vars = append(vars[:count+j], append([]interface{}{reflectValue.Index(j).Interface()}, vars[count+j:]...)...)
-				}
-				// 修改 ? 数量
-				repeat := strings.Repeat("?,", reflectLen)
-				split[i] = strings.Replace(split[i], "?", repeat[:len(repeat)-1], 1)
-			}
-			count += strings.Count(split[i], "?")
-		}
-		// 计数 ? 数量
-		str = strings.Join(split, " IN ")
+	if strings.Contains(desc.(string), " WHERE ") {
+		return fmt.Sprintf("%s", desc), vars
 	}
-	if strings.Contains(str, " WHERE ") {
-		return fmt.Sprintf("%s", str), vars
-	}
-	return fmt.Sprintf(" WHERE %s", str), vars
+	return fmt.Sprintf(" WHERE %s", desc), vars
 }
 
 func _orderby(values ...interface{}) (string, []interface{}) {

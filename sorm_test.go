@@ -69,7 +69,7 @@ func TestInsert(t *testing.T) {
 		}
 		ut := make([]UserTest, 0, 2)
 		ut = append(ut, test1, test2)
-		err := db.Create(&test1)
+		err := db.Insert(&ut)
 		if err != nil {
 			panic(err)
 		}
@@ -78,7 +78,7 @@ func TestInsert(t *testing.T) {
 
 	t.Run("Find", func(t *testing.T) {
 		var users []UserTest
-		err := db.Limit(1).Offset(1).Find(&users)
+		err := db.Select([]string{"id", "name"}).Find(&users)
 		if err != nil {
 			panic(err)
 		}
@@ -86,7 +86,7 @@ func TestInsert(t *testing.T) {
 	})
 
 	t.Run("update", func(t *testing.T) {
-		err := db.Model(UserTest{}).Where("id=?", 76).Update("name", "111")
+		err := db.Model(UserTest{}).Where("id=? and name in (?)", 76, []string{"11", "22"}).Where("id in (?)", []int{1, 2}).Update("name", "111")
 		assert.Nil(t, err)
 	})
 
@@ -117,6 +117,28 @@ func TestInsert(t *testing.T) {
 		err := db.Where("id in (?)", []int{75}).First(&ut)
 		assert.Nil(t, err)
 		fmt.Println(ut)
+	})
+
+	t.Run("raw", func(t *testing.T) {
+		//var ti time.Time
+		var ti time.Time
+		err := db.Raw("select create_time from user_test limit 1").Scan(&ti)
+		assert.Nil(t, err)
+		fmt.Println(ti)
+	})
+
+	t.Run("raw ints", func(t *testing.T) {
+		var i []int
+		err := db.Raw("select id from user_test").Scan(&i)
+		assert.Nil(t, err)
+		fmt.Println(i)
+	})
+
+	t.Run("table", func(t *testing.T) {
+		var i []int
+		err := db.Select("id").Table("user_test").Rows().Scan(&i)
+		assert.Nil(t, err)
+		fmt.Println(i)
 	})
 
 	t.Run("rollabck", func(t *testing.T) {

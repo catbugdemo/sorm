@@ -2,9 +2,11 @@ package main
 
 import (
 	"database/sql"
+	"errors"
 	"github.com/catbugdemo/sorm/dialect"
 	"github.com/catbugdemo/sorm/log"
 	"github.com/catbugdemo/sorm/session"
+	"reflect"
 )
 
 type Engine struct {
@@ -52,6 +54,23 @@ func (engine *Engine) Close() {
 
 func (engine *Engine) NewSession() *session.Session {
 	return session.New(engine.db, engine.dialect)
+}
+
+func ReplaceSqlx(values interface{}) (*session.Session, error) {
+	value := reflect.ValueOf(values)
+	switch value.Kind() {
+	case reflect.Ptr:
+		dest := reflect.Indirect(value)
+		driver := dest.FieldByName("driverName").String()
+		dial, ok := dialect.GetDialect(driver)
+		if !ok {
+			log.Errorf("dialect %s Not Found", driver)
+			return nil, nil
+		}
+		return session.New(dest.FieldByName("DB").Interface().(*sql.DB), dial), nil
+	default:
+		return nil, errors.New("values not pointer sqlx.DB")
+	}
 }
 
 type TxFunc func(*session.Session) (interface{}, error)
