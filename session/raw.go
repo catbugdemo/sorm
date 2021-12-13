@@ -119,7 +119,7 @@ func QueToDoller(sql string, vars []interface{}) (string, []interface{}, string)
 	queCount := strings.Count(sql, "?")
 	logs := sql
 	for i := 0; i < queCount; i++ {
-		logs = strings.Replace(sql, "?", vars[i].(string), 1)
+		logs = strings.Replace(sql, "?", "'"+vars[i].(string)+"'", 1)
 	}
 
 	// ? to $num

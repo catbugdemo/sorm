@@ -119,7 +119,11 @@
     db.Select("id").Table("user_test").Rows().Scan(&ids)
     // SELECT id FROM user_test
 ```
-
+- Count 查询总数
+```go
+    var count int 
+    db.Model(&ut).Count(&count)
+```
 #### 3.修改
 - Update 单一参数修改
 ```go
@@ -151,6 +155,15 @@
     	return err
     }
     // DELETE FROM user_test Where id='1'
+```
+#### 5.支持自主语句
+```go
+    var id int 
+    db.Raw("select id from user_test where name=?",'test').Scan(&id)
+
+    // or 
+    db.Select("id").Table("user_test").Where("name=?",'test').Rows().Scan(&id)
+    // SELECT id FROM user_test WHERE name='test'
 ```
 ### 3.支持 golang database/db 原生查询
 ```go
