@@ -2,6 +2,7 @@ package session
 
 import (
 	"database/sql"
+	"fmt"
 	"github.com/catbugdemo/sorm/clause"
 	"github.com/catbugdemo/sorm/dialect"
 	"github.com/catbugdemo/sorm/log"
@@ -119,7 +120,7 @@ func QueToDoller(sql string, vars []interface{}) (string, []interface{}, string)
 	queCount := strings.Count(sql, "?")
 	logs := sql
 	for i := 0; i < queCount; i++ {
-		logs = strings.Replace(sql, "?", "'"+vars[i].(string)+"'", 1)
+		logs = strings.Replace(logs, "?", "'"+fmt.Sprintf("%v", vars[i])+"'", 1)
 	}
 
 	// ? to $num

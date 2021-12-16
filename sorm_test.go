@@ -19,7 +19,7 @@ type TestUser struct {
 }
 
 func InitDB() *session.Session {
-	engine, err := NewEngine("postgres", fmt.Sprint("host=118.89.121.211 port=5432 user=postgres password=123456 dbname=mydb sslmode=disable"))
+	engine, err := NewEngine("postgres", fmt.Sprint("host=118.89.121.211 port=5432 user=postgres password=8616436 dbname=mydb sslmode=disable"))
 	if err != nil {
 		panic(err)
 	}
@@ -60,9 +60,9 @@ func TestInsert(t *testing.T) {
 
 	t.Run("Insert", func(t *testing.T) {
 		test1 := UserTest{
-			CreateTime: time.Now().AddDate(0, 0, -1),
-			Name:       "222",
-			NameId:     333}
+			//CreateTime: time.Now().AddDate(0, 0, -1),
+			Name:   "222",
+			NameId: 333}
 		test2 := UserTest{
 			Name:   "555",
 			NameId: 666,
@@ -73,7 +73,7 @@ func TestInsert(t *testing.T) {
 		if err != nil {
 			panic(err)
 		}
-		fmt.Println(&test1)
+		fmt.Println(&ut)
 	})
 
 	t.Run("Find", func(t *testing.T) {
@@ -136,7 +136,7 @@ func TestInsert(t *testing.T) {
 
 	t.Run("table", func(t *testing.T) {
 		var i []int
-		err := db.Select("id").Table("user_test").Rows().Scan(&i)
+		err := db.Select("id").Table("user_test").Scan(&i)
 		assert.Nil(t, err)
 		fmt.Println(i)
 	})

@@ -268,13 +268,12 @@ func (s *Session) First(values interface{}) error {
 	return nil
 }
 
-func (s *Session) Rows() *Session {
-	sql, sqlVars := s.clause.Build(clause.Operator...)
-	return s.Raw(sql, sqlVars...)
-}
-
 func (s *Session) Scan(values interface{}) error {
 	value := reflect.Indirect(reflect.ValueOf(values))
+	sql, sqlVars := s.clause.Build(clause.Operator...)
+	if sql != "" {
+		s.Raw(sql, sqlVars...)
+	}
 	switch value.Kind() {
 	case reflect.Slice, reflect.Array:
 		rows, err := s.QueryRows()
