@@ -162,7 +162,7 @@
     db.Raw("select id from user_test where name=?",'test').Scan(&id)
 
     // or 
-    db.Select("id").Table("user_test").Where("name=?",'test').Rows().Scan(&id)
+    db.Select("id").Table("user_test").Where("name=?",'test').Scan(&id)
     // SELECT id FROM user_test WHERE name='test'
 ```
 ### 3.支持 golang database/db 原生查询
