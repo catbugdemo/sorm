@@ -2,9 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/catbugdemo/sorm/dialect"
 	"github.com/catbugdemo/sorm/session"
-	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 	"log"
@@ -12,11 +10,6 @@ import (
 	"testing"
 	"time"
 )
-
-type TestUser struct {
-	Id   int `sorm:"PRIMARY KEY"`
-	Name string
-}
 
 func InitDB() *session.Session {
 	engine, err := NewEngine("postgres", fmt.Sprint("host=118.89.121.211 port=5432 user=postgres password=8616436 dbname=mydb sslmode=disable"))
@@ -26,13 +19,14 @@ func InitDB() *session.Session {
 	return engine.NewSession()
 }
 
+/*
 func TestSession_CreateTable(t *testing.T) {
 	engine, err := NewEngine("postgres", fmt.Sprint("host=127.0.0.1 port=5432 user=postgres password=123456 dbname=mydb sslmode=disable"))
 	if err != nil {
 		panic(err)
 	}
 	defer engine.Close()
-	model := engine.NewSession().Model(&TestUser{})
+	model := engine.NewSession().Model(&UserTest{})
 
 	_ = model.DropTable()
 	_ = model.CreateTable()
@@ -40,7 +34,7 @@ func TestSession_CreateTable(t *testing.T) {
 		t.Fatal("Failed to create table test_user")
 	}
 }
-
+*/
 type UserTest struct {
 	Id         int       `db:"id"`
 	CreateTime time.Time `db:"create_time"`
@@ -139,17 +133,6 @@ func TestInsert(t *testing.T) {
 		err := db.Select("id").Table("user_test").Scan(&i)
 		assert.Nil(t, err)
 		fmt.Println(i)
-	})
-
-	t.Run("rollabck", func(t *testing.T) {
-		d := sqlx.DB{}
-		driverName := reflect.Indirect(reflect.ValueOf(d)).FieldByName("driverName").String()
-		dial, ok := dialect.GetDialect(driverName)
-		if !ok {
-			log.Fatalf("dialect %s Not Found", driverName)
-			return
-		}
-		_ = session.New(d.DB, dial)
 	})
 }
 
